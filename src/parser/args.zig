@@ -2,26 +2,43 @@ const std = @import("std");
 const types = @import("types.zig");
 const mem = std.mem;
 const Error = error{ InvalidOption, MissingOptionArgument } || mem.Allocator.Error;
+const iface = @import("iface");
 
 pub fn ArgumentParser(comptime T: type) type {
     const options = types.optionsToArray(T);
     return struct {
         const Self = @This();
-        instance: T = std.mem.zeroes(T),
+        parameters: T = std.mem.zeroes(T),
         allocator: std.mem.Allocator,
-        processArguments: std.process.ArgIterator,
-        arguments: std.ArrayList([:0]const u8),
+        arguments: iface.types.Iterator([:0]const u8),
+        operands: std.ArrayList([:0]const u8),
+        lastArg: ?[:0]const u8,
+        end_of_options: bool,
 
         pub fn init(alc: std.mem.Allocator) !Self {
             return Self{
                 .allocator = alc,
-                .processArguments = std.process.args(),
-                .arguments = try std.ArrayList([:0]const u8).initCapacity(alc, 0),
+                .arguments = undefined,
+                .lastArg = null,
+                .end_of_options = false,
+                .operands = try std.ArrayList([:0]const u8).initCapacity(alc, 0),
             };
         }
 
-        pub fn parse(self: *Self) !T {
-            while (self.processArguments.next()) |arg| {
+        pub fn parse(self: *Self, arguments: iface.types.Iterator([:0]const u8)) !T {
+            self.arguments = arguments;
+            while (self.arguments.next()) |arg| {
+                if (self.end_of_options) {
+                    try self.operands.append(self.allocator, arg);
+                    continue;
+                }
+
+                if (mem.eql(u8, arg, "--")) {
+                    self.end_of_options = true;
+                    continue;
+                }
+
+                self.lastArg = arg;
                 // match long and short format according to posix (one hyphen for short and two for long format)
                 if (mem.startsWith(u8, arg, "--")) {
                     try self.matchOptionLong(arg);
@@ -33,13 +50,13 @@ pub fn ArgumentParser(comptime T: type) type {
                     continue;
                 }
 
-                try self.arguments.append(self.allocator, arg);
+                try self.operands.append(self.allocator, arg);
             }
-            return self.instance;
+            return self.parameters;
         }
 
         fn mustNextArg(self: *Self) ![:0]const u8 {
-            return self.processArguments.next() orelse {
+            return self.arguments.next() orelse {
                 return Error.MissingOptionArgument;
             };
         }
@@ -51,12 +68,14 @@ pub fn ArgumentParser(comptime T: type) type {
                 inline for (options) |opt| {
                     if (char == opt.shortFormat) {
                         //option doesn't supports option-argument
-                        const field = &@field(self.instance, opt.longFormat);
+                        const field = &@field(self.parameters, opt.longFormat);
                         if (opt.isBool) {
                             field.* = true;
                             continue :outer; // don't break because to not trigger error;
                         } else if (charIdx == trimmed.len - 1) { //the argument itself doesn't contain the option-argument (e.g. wget -O somefile)
-                            field.* = try self.mustNextArg();
+                            const nextArg = try self.mustNextArg();
+                            self.lastArg = self.lastArg;
+                            field.* = nextArg;
                         } else { //the argument does contain the option-argument (e.g. wget -Osomefile)
                             field.* = trimmed[charIdx + 1 ..];
                         }
@@ -70,7 +89,7 @@ pub fn ArgumentParser(comptime T: type) type {
         fn matchOptionLong(self: *Self, arg: [:0]const u8) !void {
             const trimmed = arg[2..];
             inline for (options) |opt| {
-                const field = &@field(self.instance, opt.longFormat);
+                const field = &@field(self.parameters, opt.longFormat);
                 const optionLong = opt.longFormat;
                 //option doesn't supports option-argument
                 if (opt.isBool) {
@@ -83,7 +102,9 @@ pub fn ArgumentParser(comptime T: type) type {
 
                 //the argument itself doesn't contain the option-argument (e.g. wget --output-document somefile)
                 if (mem.eql(u8, trimmed, optionLong)) {
-                    field.* = try self.mustNextArg();
+                    const nextArg = try self.mustNextArg();
+                    self.lastArg = self.lastArg;
+                    field.* = nextArg;
                     return;
                 }
 

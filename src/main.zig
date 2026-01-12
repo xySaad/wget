@@ -1,5 +1,6 @@
 pub const parser = @import("parser");
 const std = @import("std");
+const iface = @import("iface");
 
 pub const Options = struct {
     const str = [:0]const u8;
@@ -25,10 +26,11 @@ pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
+    var args = std.process.args();
 
     var argParser = try parser.ArgumentParser(Options).init(allocator);
-    const options = argParser.parse() catch |err| {
-        std.debug.print("{any}\n", .{err});
+    const options = argParser.parse(iface.asInterface(iface.types.Iterator([:0]const u8), &args)) catch |err| {
+        std.debug.print("{?s}: {any}\n", .{ argParser.lastArg, err });
         return;
     };
 

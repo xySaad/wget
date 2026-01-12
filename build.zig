@@ -7,6 +7,7 @@ const std = @import("std");
 // build runner to parallelize the build automatically (and the cache system to
 // know when a step doesn't need to be re-run).
 pub fn build(b: *std.Build) void {
+
     // Standard target options allow the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
     // means any target is allowed, and the default is native. Other options
@@ -72,30 +73,23 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             // List of modules available for import in source files part of the
             // root module.
-            .imports = &.{
-                // .{
-                //     .name = "utils",
-                //     .module = b.addModule("wget", .{
-                //         .root_source_file = b.path("src/utils/root.zig"),
-                //         .target = target,
-                //     }),
-                // },
-                .{
-                    .name = "parser",
-                    .module = b.addModule("wget", .{
-                        .root_source_file = b.path("src/parser/root.zig"),
-                        .target = target,
-                    }),
-                },
-                // Here "wget" is the name you will use in your source code to
-                // import this module (e.g. `@import("wget")`). The name is
-                // repeated because you are allowed to rename your imports, which
-                // can be extremely useful in case of collisions (which can happen
-                // importing modules from different packages).
-                // .{ .name = "wget", .module = mod },
-            },
+
+            .imports = &.{},
         }),
     });
+
+    const parser_module = b.addModule("wget", .{
+        .root_source_file = b.path("src/parser/root.zig"),
+        .target = target,
+    });
+
+    exe.root_module.addImport("parser", parser_module);
+    const iface = b.dependency("iface", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    parser_module.addImport("iface", iface.module("iface"));
+    exe.root_module.addImport("iface", iface.module("iface"));
 
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default
