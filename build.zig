@@ -23,17 +23,23 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    const parser_module = b.addModule("wget", .{
-        .root_source_file = b.path("src/parser/root.zig"),
-        .target = target,
-    });
-
-    exe.root_module.addImport("parser", parser_module);
     const iface = b.dependency("iface", .{
         .target = target,
         .optimize = optimize,
     });
+
+    const parser_module = b.addModule("wget", .{
+        .root_source_file = b.path("src/parser/root.zig"),
+        .target = target,
+    });
     parser_module.addImport("iface", iface.module("iface"));
+
+    const wget_module = b.addModule("wget", .{
+        .root_source_file = b.path("src/wget/root.zig"),
+        .target = target,
+    });
+    exe.root_module.addImport("wget", wget_module);
+    exe.root_module.addImport("parser", parser_module);
     exe.root_module.addImport("iface", iface.module("iface"));
 
     b.installArtifact(exe);
