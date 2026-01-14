@@ -1,5 +1,5 @@
 pub const types = @import("types.zig");
-pub const HttpHandler = @import("http.zig").HttpHandler;
+pub const HttpHandler = @import("http_handler.zig").HttpHandler;
 pub const FtpHandler = @import("ftp.zig").FtpHandler;
 
 const std = @import("std");

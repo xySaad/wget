@@ -1,7 +1,8 @@
 const std = @import("std");
 const root = @import("root");
 const mem = std.mem;
-const fetch = @import("fetch.zig").fetch;
+const fetch = @import("http").fetch;
+const ProgressWriter = @import("progress_writer.zig").ProgressWriter;
 
 fn getDestination(raw: []const u8) []const u8 {
     if (raw.len == 0 or mem.eql(u8, raw, "/")) {
@@ -30,27 +31,24 @@ pub const HttpHandler = struct {
         const dst = getDestination(raw);
         root.logTimed("{f}", .{uri});
 
+        var result = try fetch(&self.client, .{ .location = .{ .uri = uri } });
+
+        post_read(result.response.head, dst);
+
         var body = std.io.Writer.Allocating.init(self.alc);
         defer body.deinit();
-
-        _ = try fetch(
-            &self.client,
-            .{ .location = .{ .uri = uri }, .response_writer = &body.writer },
-            post_read,
-            dst,
-        );
+        try result.body(&body.writer, null);
 
         const file = try std.fs.cwd().createFile(dst, .{});
         defer file.close();
         _ = try file.write(try body.toOwnedSlice());
     }
 
-    fn post_read(response: *std.http.Client.Response, dst: []const u8) void {
-        const head = response.head;
+    fn post_read(head: std.http.Client.Response.Head, dst: []const u8) void {
         const status = head.status;
 
         root.logTimed("status: {d} {?s}", .{ @intFromEnum(status), status.phrase() });
-        if (status.class() != .success) return;
+        if (status.class() != .success) return; // TODO: return error
         if (head.content_length) |size| {
             root.logTimed("content size: {d} [~{B}]", .{ size, size });
         } else root.logTimed("content size: unspecified", .{});

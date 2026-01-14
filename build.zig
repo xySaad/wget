@@ -34,6 +34,12 @@ pub fn build(b: *std.Build) void {
     });
     parser_module.addImport("iface", iface.module("iface"));
 
+    const http_module = b.addModule("wget", .{
+        .root_source_file = b.path("src/http/root.zig"),
+        .target = target,
+    });
+    http_module.addImport("iface", iface.module("iface"));
+
     const wget_module = b.addModule("wget", .{
         .root_source_file = b.path("src/wget/root.zig"),
         .target = target,
@@ -41,6 +47,7 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("wget", wget_module);
     exe.root_module.addImport("parser", parser_module);
     exe.root_module.addImport("iface", iface.module("iface"));
+    wget_module.addImport("http", http_module);
 
     const zeit = b.dependency("zeit", .{
         .target = target,
