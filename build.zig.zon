@@ -8,6 +8,10 @@
             .url = "git+https://github.com/xySaad/iface#e59b97cc12e889b4794cbc84ea1f990f6cd961ae",
             .hash = "iface-0.1.0-jnSVT5gMAAAn_IuezGYZdDkyEwObmmU8Mv5dEiOYWSrh",
         },
+        .zeit = .{
+            .url = "git+https://github.com/rockorager/zeit?ref=main#7ac64d72dbfb1a4ad549102e7d4e232a687d32d8",
+            .hash = "zeit-0.6.0-5I6bk36tAgATpSl9wjFmRPMqYN2Mn0JQHgIcRNcqDpJA",
+        },
     },
     .paths = .{
         "build.zig",

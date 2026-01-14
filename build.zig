@@ -42,6 +42,13 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("parser", parser_module);
     exe.root_module.addImport("iface", iface.module("iface"));
 
+    const zeit = b.dependency("zeit", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    exe.root_module.addImport("zeit", zeit.module("zeit"));
+
     b.installArtifact(exe);
 
     const run_step = b.step("run", "Run the app");

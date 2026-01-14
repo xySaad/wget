@@ -3,51 +3,75 @@ pub const HttpHandler = @import("http.zig").HttpHandler;
 pub const FtpHandler = @import("ftp.zig").FtpHandler;
 
 const std = @import("std");
+const Client = std.http.Client;
 const mem = std.mem;
+const fs = std.fs;
+
 pub const USAGE =
     \\Usage: wget [OPTION]... [URL]...
     \\
     \\Try `wget --help' for more options.
 ;
 
-const ALLOWED_SCHEMAS: [2][:0]const u8 = .{ "http://", "https://" };
-pub const Error = error{
+const ALLOWED_SCHEMAS: [2][:0]const u8 = .{ "http", "https" };
+pub const ParseError = error{
     MissingURL,
     UnsupportedScheme,
 };
+pub const Error = Client.RequestError || fs.File.OpenError || std.Io.Writer.Error || std.fs.File.WriteError || Client.Request.ReceiveHeadError || Client.Request.ReceiveHeadError || std.Io.Reader.LimitedAllocError || std.Io.Reader.ReadAllocError;
 
 pub const Wget = struct {
-    urls: []std.Uri, //http urls
+    uris: []std.Uri, //http urls
     alc: mem.Allocator,
+    pos: usize = 0,
+    client: Client,
+    httpHandler: HttpHandler,
 
     pub fn init(alc: mem.Allocator, options: types.Options, operands: [][:0]const u8) !Wget {
         _ = options;
         if (operands.len == 0) {
-            return Error.MissingURL;
+            return ParseError.MissingURL;
         }
 
         const urls: []std.Uri = try alc.alloc(std.Uri, operands.len);
 
-        for (operands, 0..) |url, i| {
-            urls[i] = parseUri(url) catch |err| {
+        var i: usize = 0;
+        for (operands) |url| {
+            urls[i] = parseUri(alc, url) catch |err| {
                 std.log.err("{s}: {t}", .{ url, err });
                 continue;
             };
+            i += 1;
         }
 
+        const client = Client{ .allocator = alc };
         return Wget{
-            .urls = urls,
+            .uris = urls[0..i],
             .alc = alc,
+            .client = client,
+            .httpHandler = HttpHandler.init(alc, client),
         };
     }
 
-    pub fn parseUri(str: []const u8) !std.Uri {
+    pub fn next(self: *@This()) !?void {
+        if (self.pos >= self.uris.len) return null;
+        defer self.pos += 1;
+        const uri = self.uris[self.pos];
+
+        try self.httpHandler.download(uri);
+    }
+
+    pub fn current(self: *@This()) ?std.Uri {
+        if (self.pos == 0) return null;
+        return self.uris[self.pos - 1];
+    }
+    pub fn parseUri(alc: mem.Allocator, str: []const u8) !std.Uri {
         const uri = std.Uri.parse(str) catch e: {
-            std.log.info("Prepended http:// to '{s}'", .{str});
-            break :e try std.Uri.parseAfterScheme("http://", str);
+            const concatenated = try mem.concat(alc, u8, &[2][]const u8{ "//", str });
+            break :e try std.Uri.parseAfterScheme("http", concatenated);
         };
 
         for (ALLOWED_SCHEMAS) |scheme| if (mem.eql(u8, scheme, uri.scheme)) return uri;
-        return Error.UnsupportedScheme;
+        return ParseError.UnsupportedScheme;
     }
 };
