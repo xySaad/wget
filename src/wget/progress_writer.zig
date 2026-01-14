@@ -1,22 +1,19 @@
 const std = @import("std");
 const Writer = std.io.Writer;
 const root = @import("root");
+const File = std.fs.File;
 
 // report write progress to stdout
 pub const ProgressWriter = struct {
-    allocating: Writer.Allocating,
+    file: File,
 
-    pub fn init(allocator: std.mem.Allocator) @This() {
-        return ProgressWriter{ .allocating = Writer.Allocating.init(allocator) };
+    pub fn init(file: File) @This() {
+        return ProgressWriter{ .file = file };
     }
     pub fn write(self: *@This(), bytes: []const u8) Writer.Error!usize {
-        return self.allocating.writer.write(bytes);
-    }
-    pub fn deinit(self: *@This()) void {
-        self.allocating.deinit();
-    }
-
-    pub fn toOwnedSlice(self: *@This()) error{OutOfMemory}![]u8 {
-        return self.allocating.toOwnedSlice();
+        root.logTimed("downloading...", .{});
+        return self.file.write(bytes) catch {
+            return Writer.Error.WriteFailed;
+        };
     }
 };

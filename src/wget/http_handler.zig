@@ -37,14 +37,11 @@ pub const HttpHandler = struct {
 
         post_read(result.response.head, dst);
 
-        var body = ProgressWriter.init(self.alc);
-        defer body.deinit();
-        var wr = iface.asInterface(http.ResponseWriter, &body);
-        try result.body(&wr, null);
-
         const file = try std.fs.cwd().createFile(dst, .{});
         defer file.close();
-        _ = try file.write(try body.toOwnedSlice());
+        var body = ProgressWriter.init(file);
+        var wr = iface.asInterface(http.ResponseWriter, &body);
+        try result.body(&wr, null);
     }
 
     fn post_read(head: std.http.Client.Response.Head, dst: []const u8) void {
