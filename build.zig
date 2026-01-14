@@ -7,53 +7,50 @@ pub fn build(b: *std.Build) void {
 
     const mod = b.addModule("wget", .{
         .root_source_file = b.path("src/root.zig"),
-
         .target = target,
     });
 
     const exe = b.addExecutable(.{
         .name = "wget",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
-
+            .root_source_file = b.path("src/root.zig"),
             .target = target,
             .optimize = optimize,
-
             .imports = &.{},
         }),
     });
 
+    // dependencies
     const iface = b.dependency("iface", .{
         .target = target,
         .optimize = optimize,
     });
-
-    const parser_module = b.addModule("wget", .{
-        .root_source_file = b.path("src/parser/root.zig"),
-        .target = target,
-    });
-    parser_module.addImport("iface", iface.module("iface"));
-
-    const http_module = b.addModule("wget", .{
-        .root_source_file = b.path("src/http/root.zig"),
-        .target = target,
-    });
-    http_module.addImport("iface", iface.module("iface"));
-
-    const wget_module = b.addModule("wget", .{
-        .root_source_file = b.path("src/wget/root.zig"),
-        .target = target,
-    });
-    exe.root_module.addImport("wget", wget_module);
-    exe.root_module.addImport("parser", parser_module);
-    exe.root_module.addImport("iface", iface.module("iface"));
-    wget_module.addImport("http", http_module);
-
     const zeit = b.dependency("zeit", .{
         .target = target,
         .optimize = optimize,
     });
 
+    // submodules
+    const parser_module = b.addModule("wget", .{
+        .root_source_file = b.path("src/parser/root.zig"),
+        .target = target,
+    });
+
+    const http_module = b.addModule("wget", .{
+        .root_source_file = b.path("src/http/root.zig"),
+        .target = target,
+    });
+
+    const wget_module = b.addModule("wget", .{
+        .root_source_file = b.path("src/wget/root.zig"),
+        .target = target,
+    });
+
+    // imports
+    exe.root_module.addImport("wget", wget_module);
+    exe.root_module.addImport("parser", parser_module);
+    exe.root_module.addImport("http", http_module);
+    exe.root_module.addImport("iface", iface.module("iface"));
     exe.root_module.addImport("zeit", zeit.module("zeit"));
 
     b.installArtifact(exe);

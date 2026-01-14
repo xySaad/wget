@@ -2,7 +2,7 @@ const std = @import("std");
 const types = @import("types.zig");
 const mem = std.mem;
 const Error = error{ InvalidOption, MissingOptionArgument } || mem.Allocator.Error;
-const iface = @import("iface");
+const iface = @import("root").iface;
 
 pub fn ArgumentParser(comptime T: type) type {
     const options = types.optionsToArray(T);

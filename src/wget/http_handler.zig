@@ -1,7 +1,7 @@
 const std = @import("std");
 const root = @import("root");
 const mem = std.mem;
-const fetch = @import("http").fetch;
+const http = @import("root").http;
 const ProgressWriter = @import("progress_writer.zig").ProgressWriter;
 
 fn getDestination(raw: []const u8) []const u8 {
@@ -31,7 +31,7 @@ pub const HttpHandler = struct {
         const dst = getDestination(raw);
         root.logTimed("{f}", .{uri});
 
-        var result = try fetch(&self.client, .{ .location = .{ .uri = uri } });
+        var result = try http.fetch(&self.client, .{ .location = .{ .uri = uri } });
 
         post_read(result.response.head, dst);
 
