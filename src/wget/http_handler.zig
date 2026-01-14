@@ -29,14 +29,14 @@ pub const HttpHandler = struct {
     }
 
     pub fn download(self: *@This(), uri: std.Uri) !void {
+        root.log("{f}", .{uri});
         const raw = try uri.path.toRawMaybeAlloc(self.alc);
         const dst = getDestination(raw);
-        root.logTimed("{f}", .{uri});
-
+        root.logTimed("sending request, awaiting response...", .{});
         var result = try http.fetch(&self.client, .{ .location = .{ .uri = uri } });
+        post_read(result.response.head);
 
-        post_read(result.response.head, dst);
-
+        root.logTimed("saving file to: {s}", .{dst});
         const file = try std.fs.cwd().createFile(dst, .{});
         defer file.close();
         var body = ProgressWriter.init(file);
@@ -44,20 +44,14 @@ pub const HttpHandler = struct {
         try result.body(&wr, null);
     }
 
-    fn post_read(head: std.http.Client.Response.Head, dst: []const u8) void {
+    fn post_read(head: std.http.Client.Response.Head) void {
         const status = head.status;
-
-        root.logTimed("status: {d} {?s}", .{ @intFromEnum(status), status.phrase() });
+        root.logTimed("response received. status: {d} {?s}", .{ @intFromEnum(status), status.phrase() });
         if (status.class() != .success) return; // TODO: return error
-        if (head.content_length) |size| {
-            root.logTimed("content size: {d} [~{B}]", .{ size, size });
-        } else root.logTimed("content size: unspecified", .{});
 
-        if (head.content_type) |@"type"|
-            root.logTimed("content type: {s}", .{@"type"})
-        else
-            root.logTimed("content type: unspecified", .{});
-
-        root.logTimed("saving file to: {s}", .{dst});
+        const size = head.content_length;
+        root.log("content size: {?d} [~{?B:.2}]", .{ size, size });
+        const ctype = head.content_type;
+        root.log("content type: {?s}", .{ctype});
     }
 };

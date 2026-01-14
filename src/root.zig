@@ -16,3 +16,10 @@ pub fn logTimed(comptime fmt: []const u8, args: anytype) void {
 
     std.io.Writer.print(&outwr.interface, fmt ++ "\n", args) catch {};
 }
+
+pub fn log(comptime fmt: []const u8, args: anytype) void {
+    const out = std.fs.File.stdout();
+    var outwr = out.writer(&.{});
+
+    std.io.Writer.print(&outwr.interface, fmt ++ "\n", args) catch {};
+}

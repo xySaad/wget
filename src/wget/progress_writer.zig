@@ -11,7 +11,6 @@ pub const ProgressWriter = struct {
         return ProgressWriter{ .file = file };
     }
     pub fn write(self: *@This(), bytes: []const u8) Writer.Error!usize {
-        root.logTimed("downloading...", .{});
         return self.file.write(bytes) catch {
             return Writer.Error.WriteFailed;
         };
