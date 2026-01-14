@@ -2,6 +2,8 @@ const std = @import("std");
 const root = @import("root");
 const mem = std.mem;
 const http = @import("root").http;
+const iface = @import("root").iface;
+
 const ProgressWriter = @import("progress_writer.zig").ProgressWriter;
 
 fn getDestination(raw: []const u8) []const u8 {
@@ -35,9 +37,10 @@ pub const HttpHandler = struct {
 
         post_read(result.response.head, dst);
 
-        var body = std.io.Writer.Allocating.init(self.alc);
+        var body = ProgressWriter.init(self.alc);
         defer body.deinit();
-        try result.body(&body.writer, null);
+        var wr = iface.asInterface(http.ResponseWriter, &body);
+        try result.body(&wr, null);
 
         const file = try std.fs.cwd().createFile(dst, .{});
         defer file.close();

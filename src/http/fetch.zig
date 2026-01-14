@@ -2,52 +2,12 @@ const std = @import("std");
 const Client = std.http.Client;
 const iface = @import("iface");
 const Writer = std.io.Writer;
-
-const FetchResult = struct {
-    client: *Client,
-    response: Client.Response,
-    request: Client.Request,
-
-    pub fn body(self: *@This(), response_writer: *std.io.Writer, decompress_buffer: ?[]u8) Client.FetchError!void {
-        defer self.request.deinit();
-        var response = self.response;
-        response.request = &self.request;
-        const client = self.client;
-
-        const decompress_buf: []u8 = switch (response.head.content_encoding) {
-            .identity => &.{},
-            .zstd => decompress_buffer orelse try client.allocator.alloc(u8, std.compress.zstd.default_window_len),
-            .deflate, .gzip => decompress_buffer orelse try client.allocator.alloc(u8, std.compress.flate.max_window_len),
-            .compress => return error.UnsupportedCompressionMethod,
-        };
-        defer if (decompress_buffer == null) client.allocator.free(decompress_buf);
-
-        var transfer_buffer: [64]u8 = undefined;
-        var decompress: std.http.Decompress = undefined;
-        const reader = response.readerDecompressing(&transfer_buffer, &decompress, decompress_buf);
-
-        _ = reader.streamRemaining(response_writer) catch |err| switch (err) {
-            error.ReadFailed => return response.bodyErr().?,
-            else => |e| return e,
-        };
-    }
-
-    pub fn discard(self: @This()) Client.FetchError!void {
-        defer self.request.deinit();
-        var response = self.response;
-        response.request = &self.request;
-
-        const reader = response.reader(&.{});
-        _ = reader.discardRemaining() catch |err| switch (err) {
-            error.ReadFailed => return response.bodyErr().?,
-        };
-    }
-};
+const types = @import("types.zig");
 
 /// caller must either call `FetchResult.discard` or `FetchResult.body` to cleanup ressources
 ///
 /// `FetchOptions.response_writer` and `FetchOptions.decompress_buffer` are not used
-pub fn fetch(client: *Client, options: Client.FetchOptions) Client.FetchError!FetchResult {
+pub fn fetch(client: *Client, options: Client.FetchOptions) Client.FetchError!types.FetchResult {
     const uri = switch (options.location) {
         .url => |u| try std.Uri.parse(u),
         .uri => |u| u,
