@@ -40,12 +40,15 @@ pub const FetchResult = struct {
         var transfer_buffer: [64]u8 = undefined;
         var decompress: std.http.Decompress = undefined;
         const reader = response.readerDecompressing(&transfer_buffer, &decompress, decompress_buf);
-
         var buf: [1024]u8 = undefined;
+
+        var written: usize = 0;
         while (true) {
             const n = try reader.readSliceShort(&buf);
+            written += n;
             _ = try response_writer.write(buf[0..n]);
             if (n == 0) break;
+            if (response.head.content_length) |len| if (written >= len) break;
         }
     }
 
