@@ -6,6 +6,13 @@ const iface = @import("iface");
 
 const ProgressWriter = @import("progress_writer.zig").ProgressWriter;
 
+fn getComponent(comp: std.Uri.Component) []const u8 {
+    return switch (comp) {
+        .percent_encoded => |v| v,
+        .raw => |v| v,
+    };
+}
+
 fn getDestination(raw: []const u8) []const u8 {
     if (raw.len == 0 or mem.eql(u8, raw, "/")) {
         return "index.html";
@@ -30,19 +37,26 @@ pub const HttpHandler = struct {
 
     pub fn download(self: *@This(), uri: std.Uri) !void {
         fmt.log("{f}", .{uri});
-        const raw = try uri.path.toRawMaybeAlloc(self.alc);
-        const dst = getDestination(raw);
+        var dst = try std.ArrayList(u8).initCapacity(self.alc, 0);
+        try dst.appendSlice(self.alc, getDestination(getComponent(uri.path)));
+        if (uri.query) |q| {
+            try dst.appendSlice(self.alc, getComponent(q));
+        }
+
+        const dst_str = dst.items;
+
         fmt.logTimed("sending request, awaiting response...", .{});
         var result = try http.fetch(&self.client, .{ .location = .{ .uri = uri } });
         post_read(result.response.head);
 
-        fmt.logTimed("saving file to: {s}", .{dst});
-        const file = try std.fs.cwd().createFile(dst, .{});
+        fmt.logTimed("saving file to: {s}", .{dst_str});
+        const file = try std.fs.cwd().createFile(dst_str, .{});
         defer file.close();
         var body = ProgressWriter.init(file, result.response.head.content_length);
         var wr = iface.asInterface(http.ResponseWriter, &body);
         try result.body(&wr, null);
         fmt.log("", .{});
+        fmt.logTimed("succesfully downloaded '{s}'", .{dst_str});
     }
 
     fn post_read(head: std.http.Client.Response.Head) void {
