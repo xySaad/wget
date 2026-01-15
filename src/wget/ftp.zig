@@ -1,1 +1,1 @@
-pub const FtpHandler = struct {};
+const FtpHandler = struct {};

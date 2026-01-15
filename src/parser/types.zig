@@ -1,4 +1,4 @@
-pub const OptionInfo = struct {
+const OptionInfo = struct {
     shortFormat: ?u8,
     longFormat: []const u8,
     isBool: bool,

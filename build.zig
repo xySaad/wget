@@ -31,10 +31,17 @@ pub fn build(b: *std.Build) void {
     });
 
     // submodules
+    const fmt_module = b.addModule("wget", .{
+        .root_source_file = b.path("src/fmt/root.zig"),
+        .target = target,
+    });
+    fmt_module.addImport("zeit", zeit.module("zeit"));
+
     const parser_module = b.addModule("wget", .{
         .root_source_file = b.path("src/parser/root.zig"),
         .target = target,
     });
+    parser_module.addImport("iface", iface.module("iface"));
 
     const http_module = b.addModule("wget", .{
         .root_source_file = b.path("src/http/root.zig"),
@@ -45,13 +52,14 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/wget/root.zig"),
         .target = target,
     });
+    wget_module.addImport("iface", iface.module("iface"));
+    wget_module.addImport("http", http_module);
+    wget_module.addImport("fmt", fmt_module);
 
     // imports
     exe.root_module.addImport("wget", wget_module);
     exe.root_module.addImport("parser", parser_module);
-    exe.root_module.addImport("http", http_module);
     exe.root_module.addImport("iface", iface.module("iface"));
-    exe.root_module.addImport("zeit", zeit.module("zeit"));
 
     b.installArtifact(exe);
 

@@ -1,24 +1,18 @@
 pub const types = @import("types.zig");
-pub const HttpHandler = @import("http_handler.zig").HttpHandler;
-pub const FtpHandler = @import("ftp.zig").FtpHandler;
 
+const HttpHandler = @import("http_handler.zig").HttpHandler;
+const FtpHandler = @import("ftp.zig").FtpHandler;
 const std = @import("std");
 const Client = std.http.Client;
 const mem = std.mem;
 const fs = std.fs;
-
-pub const USAGE =
-    \\Usage: wget [OPTION]... [URL]...
-    \\
-    \\Try `wget --help' for more options.
-;
 
 const ALLOWED_SCHEMAS: [2][:0]const u8 = .{ "http", "https" };
 pub const ParseError = error{
     MissingURL,
     UnsupportedScheme,
 };
-pub const Error = Client.RequestError || fs.File.OpenError || std.Io.Writer.Error || std.fs.File.WriteError || Client.Request.ReceiveHeadError || Client.Request.ReceiveHeadError || std.Io.Reader.LimitedAllocError || std.Io.Reader.ReadAllocError;
+const Error = Client.RequestError || fs.File.OpenError || std.Io.Writer.Error || std.fs.File.WriteError || Client.Request.ReceiveHeadError || Client.Request.ReceiveHeadError || std.Io.Reader.LimitedAllocError || std.Io.Reader.ReadAllocError;
 
 pub const Wget = struct {
     uris: []std.Uri, //http urls

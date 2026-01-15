@@ -1,8 +1,8 @@
 const std = @import("std");
-const root = @import("root");
+const fmt = @import("fmt");
 const mem = std.mem;
-const http = @import("root").http;
-const iface = @import("root").iface;
+const http = @import("http");
+const iface = @import("iface");
 
 const ProgressWriter = @import("progress_writer.zig").ProgressWriter;
 
@@ -29,30 +29,30 @@ pub const HttpHandler = struct {
     }
 
     pub fn download(self: *@This(), uri: std.Uri) !void {
-        root.log("{f}", .{uri});
+        fmt.log("{f}", .{uri});
         const raw = try uri.path.toRawMaybeAlloc(self.alc);
         const dst = getDestination(raw);
-        root.logTimed("sending request, awaiting response...", .{});
+        fmt.logTimed("sending request, awaiting response...", .{});
         var result = try http.fetch(&self.client, .{ .location = .{ .uri = uri } });
         post_read(result.response.head);
 
-        root.logTimed("saving file to: {s}", .{dst});
+        fmt.logTimed("saving file to: {s}", .{dst});
         const file = try std.fs.cwd().createFile(dst, .{});
         defer file.close();
         var body = ProgressWriter.init(file, result.response.head.content_length);
         var wr = iface.asInterface(http.ResponseWriter, &body);
         try result.body(&wr, null);
-        root.log("", .{});
+        fmt.log("", .{});
     }
 
     fn post_read(head: std.http.Client.Response.Head) void {
         const status = head.status;
-        root.logTimed("response received. status: {d} {?s}", .{ @intFromEnum(status), status.phrase() });
+        fmt.logTimed("response received. status: {d} {?s}", .{ @intFromEnum(status), status.phrase() });
         if (status.class() != .success) return; // TODO: return error
 
         const size = head.content_length;
-        root.log("content size: {?d} [~{?B:.2}]", .{ size, size });
+        fmt.log("content size: {?d} [~{?B:.2}]", .{ size, size });
         const ctype = head.content_type;
-        root.log("content type: {?s}", .{ctype});
+        fmt.log("content type: {?s}", .{ctype});
     }
 };

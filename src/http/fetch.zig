@@ -1,6 +1,5 @@
 const std = @import("std");
 const Client = std.http.Client;
-const iface = @import("iface");
 const Writer = std.io.Writer;
 const types = @import("types.zig");
 

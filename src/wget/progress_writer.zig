@@ -1,6 +1,6 @@
 const std = @import("std");
 const Writer = std.io.Writer;
-const root = @import("root");
+const fmt = @import("fmt");
 const File = std.fs.File;
 const time = std.time;
 
@@ -62,21 +62,21 @@ pub const ProgressWriter = struct {
         var n: usize = 0;
 
         if (eta > time.s_per_day) {
-            n += root.formatBuf(eta_srt[n..], "{d}{s}", .{ eta / time.s_per_day, "day" });
+            n += fmt.formatBuf(eta_srt[n..], "{d}{s}", .{ eta / time.s_per_day, "day" });
             eta = eta % time.s_per_day;
         }
 
         if (eta > time.s_per_hour) {
-            n += root.formatBuf(eta_srt[n..], "{d}{s}", .{ eta / time.s_per_hour, "h" });
+            n += fmt.formatBuf(eta_srt[n..], "{d}{s}", .{ eta / time.s_per_hour, "h" });
             eta = eta % time.s_per_hour;
         }
 
         if (eta > time.s_per_min) {
-            n += root.formatBuf(eta_srt[n..], "{d}{s}", .{ eta / time.s_per_min, "m" });
+            n += fmt.formatBuf(eta_srt[n..], "{d}{s}", .{ eta / time.s_per_min, "m" });
             eta = eta % time.s_per_min;
         }
 
-        n += root.formatBuf(eta_srt[n..], "{d}{s}", .{ eta, "s" });
+        n += fmt.formatBuf(eta_srt[n..], "{d}{s}", .{ eta, "s" });
 
         return eta_srt[0..n];
     }
@@ -94,7 +94,7 @@ pub const ProgressWriter = struct {
             @memset(self.bar[@intFromFloat(percent_written)..@intFromFloat(percent_total)], '|');
             const bps = self.bytes_per_second();
             const eta = self.formated_eta(bps);
-            root.log("{Bi:.2} / {?Bi:.2} [{s}] {d:.2}% {Bi:.2}/s {s}\x1B[K\x1B[F", .{
+            fmt.log("{Bi:.2} / {?Bi:.2} [{s}] {d:.2}% {Bi:.2}/s {s}\x1B[K\x1B[F", .{
                 self.written,
                 self.expected_size,
                 self.bar,
