@@ -11,8 +11,8 @@ pub const ProgressWriter = struct {
     written: u64 = 0,
     bar: [100]u8 = ".".* ** 100,
     start_time: ?time.Instant = null,
-
-    const MAX_ETA = "999 day 24h 60m 60s";
+    eta_buf: [MAX_ETA.len]u8 = undefined,
+    const MAX_ETA = "99d 23h 59m 59s";
 
     pub fn init(file: File, expected_size: ?u64) @This() {
         return ProgressWriter{ .file = file, .expected_size = expected_size };
@@ -50,33 +50,24 @@ pub const ProgressWriter = struct {
             const remaining = size - self.written;
             return remaining / bps;
         }
-
         return 0;
     }
 
     fn formated_eta(self: *@This(), bps: u64) []const u8 {
         var eta = self.get_eta(bps);
-        var buf: [MAX_ETA.len]u8 = " ".* ** MAX_ETA.len;
-        var eta_srt = &buf;
+        var eta_srt = &self.eta_buf;
+        const labels = &.{
+            .{ time.s_per_day, "d" },
+            .{ time.s_per_hour, "h" },
+            .{ time.s_per_min, "m" },
+            .{ 1, "s" },
+        };
 
         var n: usize = 0;
-
-        if (eta > time.s_per_day) {
-            n += fmt.formatBuf(eta_srt[n..], "{d}{s}", .{ eta / time.s_per_day, "day" });
-            eta = eta % time.s_per_day;
-        }
-
-        if (eta > time.s_per_hour) {
-            n += fmt.formatBuf(eta_srt[n..], "{d}{s}", .{ eta / time.s_per_hour, "h" });
-            eta = eta % time.s_per_hour;
-        }
-
-        if (eta > time.s_per_min) {
-            n += fmt.formatBuf(eta_srt[n..], "{d}{s}", .{ eta / time.s_per_min, "m" });
-            eta = eta % time.s_per_min;
-        }
-
-        n += fmt.formatBuf(eta_srt[n..], "{d}{s}", .{ eta, "s" });
+        inline for (labels) |lbl| if (eta >= lbl[0]) {
+            n += fmt.formatBuf(eta_srt[n..], "{d}{s} ", .{ eta / lbl[0], lbl[1] });
+            eta %= lbl[0];
+        };
 
         return eta_srt[0..n];
     }
