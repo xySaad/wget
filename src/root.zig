@@ -23,3 +23,10 @@ pub fn log(comptime fmt: []const u8, args: anytype) void {
 
     std.io.Writer.print(&outwr.interface, fmt ++ "\n", args) catch {};
 }
+
+pub fn formatBuf(buf: []u8, comptime fmt: []const u8, args: anytype) usize {
+    const slice = std.fmt.bufPrint(buf, fmt, args) catch {
+        return 0;
+    };
+    return slice.len;
+}

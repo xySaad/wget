@@ -39,9 +39,10 @@ pub const HttpHandler = struct {
         root.logTimed("saving file to: {s}", .{dst});
         const file = try std.fs.cwd().createFile(dst, .{});
         defer file.close();
-        var body = ProgressWriter.init(file);
+        var body = ProgressWriter.init(file, result.response.head.content_length);
         var wr = iface.asInterface(http.ResponseWriter, &body);
         try result.body(&wr, null);
+        root.log("", .{});
     }
 
     fn post_read(head: std.http.Client.Response.Head) void {
