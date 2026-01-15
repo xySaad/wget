@@ -1,10 +1,10 @@
 const std = @import("std");
 const zeit = @import("zeit");
 
-pub fn logTimed(comptime fmt: []const u8, args: anytype) void {
-    const out = std.fs.File.stdout();
-    var outwr = out.writer(&.{});
+const out = std.fs.File.stdout();
+var outwr = out.writer(&.{});
 
+pub fn logTimed(comptime fmt: []const u8, args: anytype) void {
     const local = zeit.local(std.heap.page_allocator, null) catch zeit.utc;
     if (zeit.instant(.{ .timezone = &local })) |now| {
         now.time().strftime(&outwr.interface, "[%Y-%m-%d %H:%M:%S] ") catch {};
@@ -14,9 +14,6 @@ pub fn logTimed(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub fn log(comptime fmt: []const u8, args: anytype) void {
-    const out = std.fs.File.stdout();
-    var outwr = out.writer(&.{});
-
     std.io.Writer.print(&outwr.interface, fmt ++ "\n", args) catch {};
 }
 

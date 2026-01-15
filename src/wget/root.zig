@@ -1,4 +1,5 @@
 pub const types = @import("types.zig");
+pub const ProgressWriter = @import("progress_writer.zig").ProgressWriter;
 
 const HttpHandler = @import("http_handler.zig").HttpHandler;
 const FtpHandler = @import("ftp.zig").FtpHandler;
@@ -20,9 +21,9 @@ pub const Wget = struct {
     pos: usize = 0,
     client: Client,
     httpHandler: HttpHandler,
+    options: types.Options,
 
     pub fn init(alc: mem.Allocator, options: types.Options, operands: [][:0]const u8) !Wget {
-        _ = options;
         if (operands.len == 0) {
             return ParseError.MissingURL;
         }
@@ -44,6 +45,7 @@ pub const Wget = struct {
             .alc = alc,
             .client = client,
             .httpHandler = HttpHandler.init(alc, client),
+            .options = options,
         };
     }
 
@@ -51,8 +53,7 @@ pub const Wget = struct {
         if (self.pos >= self.uris.len) return null;
         defer self.pos += 1;
         const uri = self.uris[self.pos];
-
-        try self.httpHandler.download(uri);
+        try self.httpHandler.download(uri, self.options.background);
     }
 
     pub fn current(self: *@This()) ?std.Uri {

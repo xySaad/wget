@@ -1,3 +1,7 @@
+const std = @import("std");
+const File = std.fs.File;
+const Writer = std.io.Writer;
+
 pub const Options = struct {
     const str = [:0]const u8;
     directoryPrefix: str,
@@ -16,4 +20,14 @@ pub const Options = struct {
         .mirror = 'm',
         .inputFile = 'i',
     };
+};
+
+pub const FileWriter = struct {
+    file: File,
+
+    pub fn write(self: *@This(), bytes: []const u8) Writer.Error!usize {
+        return self.file.write(bytes) catch {
+            return Writer.Error.WriteFailed;
+        };
+    }
 };

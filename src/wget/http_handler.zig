@@ -3,8 +3,9 @@ const fmt = @import("fmt");
 const mem = std.mem;
 const http = @import("http");
 const iface = @import("iface");
-
+const FileWriter = @import("types.zig").FileWriter;
 const ProgressWriter = @import("progress_writer.zig").ProgressWriter;
+const FetchResult = @import("http").FetchResult;
 
 fn getComponent(comp: std.Uri.Component) []const u8 {
     return switch (comp) {
@@ -35,7 +36,17 @@ pub const HttpHandler = struct {
         return HttpHandler{ .alc = alc, .client = client };
     }
 
-    pub fn download(self: *@This(), uri: std.Uri) !void {
+    pub fn download(self: *@This(), uri: std.Uri, bg: bool) !void {
+        if (bg) {
+            const file = try std.fs.cwd().createFile("wget-log", .{});
+            defer file.close();
+            const pid = try std.posix.fork();
+            if (pid > 0) {
+                std.process.exit(0);
+            }
+            try std.posix.dup2(file.handle, std.fs.File.stdout().handle);
+        }
+
         fmt.log("{f}", .{uri});
         var dst = try std.ArrayList(u8).initCapacity(self.alc, 0);
         try dst.appendSlice(self.alc, getDestination(getComponent(uri.path)));
@@ -47,11 +58,19 @@ pub const HttpHandler = struct {
 
         fmt.logTimed("sending request, awaiting response...", .{});
         var result = try http.fetch(&self.client, .{ .location = .{ .uri = uri } });
-        post_read(result.response.head);
+        post_read(result.response.head, dst_str);
 
-        fmt.logTimed("saving file to: {s}", .{dst_str});
         const file = try std.fs.cwd().createFile(dst_str, .{});
         defer file.close();
+
+        if (bg) {
+            try bgSave(file, &result, dst_str);
+        } else {
+            try save(file, &result, dst_str);
+        }
+    }
+
+    pub fn save(file: std.fs.File, result: *FetchResult, dst_str: []u8) !void {
         var body = ProgressWriter.init(file, result.response.head.content_length);
         var wr = iface.asInterface(http.ResponseWriter, &body);
         try result.body(&wr, null);
@@ -59,7 +78,14 @@ pub const HttpHandler = struct {
         fmt.logTimed("succesfully downloaded '{s}'", .{dst_str});
     }
 
-    fn post_read(head: std.http.Client.Response.Head) void {
+    pub fn bgSave(file: std.fs.File, result: *FetchResult, dst_str: []u8) !void {
+        var body = FileWriter{ .file = file };
+        var wr = iface.asInterface(http.ResponseWriter, &body);
+        try result.body(&wr, null);
+        fmt.logTimed("succesfully downloaded '{s}'", .{dst_str});
+    }
+
+    fn post_read(head: std.http.Client.Response.Head, dst: []u8) void {
         const status = head.status;
         fmt.logTimed("response received. status: {d} {?s}", .{ @intFromEnum(status), status.phrase() });
         if (status.class() != .success) return; // TODO: return error
@@ -68,5 +94,6 @@ pub const HttpHandler = struct {
         fmt.log("content size: {?d} [~{?B:.2}]", .{ size, size });
         const ctype = head.content_type;
         fmt.log("content type: {?s}", .{ctype});
+        fmt.logTimed("saving file to: {s}", .{dst});
     }
 };
