@@ -53,7 +53,7 @@ pub const Wget = struct {
         if (self.pos >= self.uris.len) return null;
         defer self.pos += 1;
         const uri = self.uris[self.pos];
-        try self.httpHandler.download(uri, self.options.background);
+        try self.httpHandler.download(uri, self.options);
     }
 
     pub fn current(self: *@This()) ?std.Uri {

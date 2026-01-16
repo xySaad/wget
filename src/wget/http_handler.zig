@@ -6,6 +6,7 @@ const iface = @import("iface");
 const FileWriter = @import("types.zig").FileWriter;
 const ProgressWriter = @import("progress_writer.zig").ProgressWriter;
 const FetchResult = @import("http").FetchResult;
+const types = @import("types.zig");
 
 fn getComponent(comp: std.Uri.Component) []const u8 {
     return switch (comp) {
@@ -36,8 +37,8 @@ pub const HttpHandler = struct {
         return HttpHandler{ .alc = alc, .client = client };
     }
 
-    pub fn download(self: *@This(), uri: std.Uri, bg: bool) !void {
-        if (bg) {
+    pub fn download(self: *@This(), uri: std.Uri, options: types.Options) !void {
+        if (options.background) {
             const file = try std.fs.cwd().createFile("wget-log", .{});
             defer file.close();
             const pid = try std.posix.fork();
@@ -48,13 +49,18 @@ pub const HttpHandler = struct {
         }
 
         fmt.log("{f}", .{uri});
-        var dst = try std.ArrayList(u8).initCapacity(self.alc, 0);
-        try dst.appendSlice(self.alc, getDestination(getComponent(uri.path)));
-        if (uri.query) |q| {
-            try dst.appendSlice(self.alc, getComponent(q));
-        }
 
-        const dst_str = dst.items;
+        const dst_str = blk: {
+            if (options.outputDocument.len > 0) {
+                break :blk options.outputDocument;
+            }
+            var dst = try std.ArrayList(u8).initCapacity(self.alc, 0);
+            try dst.appendSlice(self.alc, getDestination(getComponent(uri.path)));
+            if (uri.query) |q| {
+                try dst.appendSlice(self.alc, getComponent(q));
+            }
+            break :blk dst.items;
+        };
 
         fmt.logTimed("sending request, awaiting response...", .{});
         var result = try http.fetch(&self.client, .{ .location = .{ .uri = uri } });
@@ -63,14 +69,14 @@ pub const HttpHandler = struct {
         const file = try std.fs.cwd().createFile(dst_str, .{});
         defer file.close();
 
-        if (bg) {
+        if (options.background) {
             try bgSave(file, &result, dst_str);
         } else {
             try save(file, &result, dst_str);
         }
     }
 
-    pub fn save(file: std.fs.File, result: *FetchResult, dst_str: []u8) !void {
+    pub fn save(file: std.fs.File, result: *FetchResult, dst_str: []const u8) !void {
         var body = ProgressWriter.init(file, result.response.head.content_length);
         var wr = iface.asInterface(http.ResponseWriter, &body);
         try result.body(&wr, null);
@@ -78,14 +84,14 @@ pub const HttpHandler = struct {
         fmt.logTimed("succesfully downloaded '{s}'", .{dst_str});
     }
 
-    pub fn bgSave(file: std.fs.File, result: *FetchResult, dst_str: []u8) !void {
+    pub fn bgSave(file: std.fs.File, result: *FetchResult, dst_str: []const u8) !void {
         var body = FileWriter{ .file = file };
         var wr = iface.asInterface(http.ResponseWriter, &body);
         try result.body(&wr, null);
         fmt.logTimed("succesfully downloaded '{s}'", .{dst_str});
     }
 
-    fn post_read(head: std.http.Client.Response.Head, dst: []u8) void {
+    fn post_read(head: std.http.Client.Response.Head, dst: []const u8) void {
         const status = head.status;
         fmt.logTimed("response received. status: {d} {?s}", .{ @intFromEnum(status), status.phrase() });
         if (status.class() != .success) return; // TODO: return error
